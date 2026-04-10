@@ -45,10 +45,12 @@ inference:
 
 training:
   mode: boosting
-  epochs: 2000
-  eval_step: 2
   results_dir: results/runs
   boosting:
+    max_iters: 2000
+    eval_interval: 2
+    eval_iters: 2
+    log_interval: 25
     line_search:
       split: val
       alpha_bounds: [0.0, 1.0]

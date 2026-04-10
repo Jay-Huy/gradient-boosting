@@ -1,0 +1,500 @@
+{
+  "metadata": {
+    "run_id": "20260410_152934_gpt2_boosting_char_shakespeare_char",
+    "started_at": "2026-04-10T15:29:34.386232+00:00",
+    "finished_at": "2026-04-10T15:30:42.777648+00:00",
+    "config": {
+      "runtime": {
+        "mode": "train"
+      },
+      "data": {
+        "type": "shakespeare_char",
+        "params": {
+          "dataset_dir": "data/shakespeare_char",
+          "input_file": "input.txt",
+          "train_bin": "train.bin",
+          "val_bin": "val.bin",
+          "meta_file": "meta.pkl",
+          "block_size": 256,
+          "batch_size": 32,
+          "num_workers": 0,
+          "pin_memory": false,
+          "val_split": 0.1,
+          "download_if_missing": false,
+          "reprepare": false
+        }
+      },
+      "model": {
+        "type": "gpt2_boosting_char",
+        "params": {
+          "num_learners": 2,
+          "shrinkage": 1.0,
+          "weak_learner": {
+            "block_size": 256,
+            "vocab_size": 65,
+            "n_layer": 2,
+            "n_head": 6,
+            "n_embd": 384,
+            "dropout": 0.2,
+            "bias": true
+          }
+        }
+      },
+      "score": {
+        "type": "perplexity",
+        "params": {
+          "metrics": [
+            "perplexity"
+          ]
+        }
+      },
+      "inference": {
+        "enabled": false,
+        "output_dir": "outputs/predictions"
+      },
+      "training": {
+        "mode": "boosting",
+        "results_dir": "results/runs",
+        "boosting": {
+          "max_iters": 8,
+          "eval_interval": 4,
+          "eval_iters": 8,
+          "line_search": {
+            "split": "val",
+            "alpha_bounds": [
+              0.0,
+              1.0
+            ]
+          }
+        },
+        "optimizer": {
+          "name": "adamw",
+          "lr": 0.001,
+          "weight_decay": 0.1,
+          "betas": [
+            0.9,
+            0.95
+          ]
+        },
+        "log_file": "outputs/logs/gpt2_shakespear_boosting_smoke_fast.log",
+        "early_stopping": {
+          "enabled": false,
+          "metric": "loss",
+          "mode": "min",
+          "patience": 5
+        }
+      }
+    },
+    "data_meta": {
+      "vocab_size": 65,
+      "itos": {
+        "0": "\n",
+        "1": " ",
+        "2": "!",
+        "3": "$",
+        "4": "&",
+        "5": "'",
+        "6": ",",
+        "7": "-",
+        "8": ".",
+        "9": "3",
+        "10": ":",
+        "11": ";",
+        "12": "?",
+        "13": "A",
+        "14": "B",
+        "15": "C",
+        "16": "D",
+        "17": "E",
+        "18": "F",
+        "19": "G",
+        "20": "H",
+        "21": "I",
+        "22": "J",
+        "23": "K",
+        "24": "L",
+        "25": "M",
+        "26": "N",
+        "27": "O",
+        "28": "P",
+        "29": "Q",
+        "30": "R",
+        "31": "S",
+        "32": "T",
+        "33": "U",
+        "34": "V",
+        "35": "W",
+        "36": "X",
+        "37": "Y",
+        "38": "Z",
+        "39": "a",
+        "40": "b",
+        "41": "c",
+        "42": "d",
+        "43": "e",
+        "44": "f",
+        "45": "g",
+        "46": "h",
+        "47": "i",
+        "48": "j",
+        "49": "k",
+        "50": "l",
+        "51": "m",
+        "52": "n",
+        "53": "o",
+        "54": "p",
+        "55": "q",
+        "56": "r",
+        "57": "s",
+        "58": "t",
+        "59": "u",
+        "60": "v",
+        "61": "w",
+        "62": "x",
+        "63": "y",
+        "64": "z"
+      },
+      "stoi": {
+        "\n": 0,
+        " ": 1,
+        "!": 2,
+        "$": 3,
+        "&": 4,
+        "'": 5,
+        ",": 6,
+        "-": 7,
+        ".": 8,
+        "3": 9,
+        ":": 10,
+        ";": 11,
+        "?": 12,
+        "A": 13,
+        "B": 14,
+        "C": 15,
+        "D": 16,
+        "E": 17,
+        "F": 18,
+        "G": 19,
+        "H": 20,
+        "I": 21,
+        "J": 22,
+        "K": 23,
+        "L": 24,
+        "M": 25,
+        "N": 26,
+        "O": 27,
+        "P": 28,
+        "Q": 29,
+        "R": 30,
+        "S": 31,
+        "T": 32,
+        "U": 33,
+        "V": 34,
+        "W": 35,
+        "X": 36,
+        "Y": 37,
+        "Z": 38,
+        "a": 39,
+        "b": 40,
+        "c": 41,
+        "d": 42,
+        "e": 43,
+        "f": 44,
+        "g": 45,
+        "h": 46,
+        "i": 47,
+        "j": 48,
+        "k": 49,
+        "l": 50,
+        "m": 51,
+        "n": 52,
+        "o": 53,
+        "p": 54,
+        "q": 55,
+        "r": 56,
+        "s": 57,
+        "t": 58,
+        "u": 59,
+        "v": 60,
+        "w": 61,
+        "x": 62,
+        "y": 63,
+        "z": 64
+      },
+      "block_size": 256,
+      "num_train_samples": 1003854,
+      "num_val_samples": 111540
+    },
+    "score_meta": {
+      "metrics": [
+        "perplexity"
+      ],
+      "primary_metric": "perplexity"
+    },
+    "training_mode": "boosting",
+    "boosting": {
+      "num_learners": 2,
+      "max_iters_per_learner": 8,
+      "eval_interval": 4,
+      "eval_iters": 8,
+      "shrinkage": 1.0,
+      "line_search": {
+        "split": "val",
+        "alpha_bounds": [
+          0.0,
+          1.0
+        ]
+      },
+      "learner_alphas": [
+        0.9999940391390134,
+        0.9999957725700178
+      ],
+      "learner_progress": [
+        {
+          "learner_id": 1,
+          "alpha": 0.9999940391390134,
+          "probe_split": "val",
+          "probe_batches": 8,
+          "before_score": 65.0000740197835,
+          "after_score": 62.296055248466544,
+          "score_improvement": 2.704018771316953,
+          "before_loss": 0.003154955425998196,
+          "after_loss": 0.00031375895559904166,
+          "loss_improvement": 0.0028411964703991544,
+          "score_name": "perplexity"
+        },
+        {
+          "learner_id": 2,
+          "alpha": 0.9999957725700178,
+          "probe_split": "val",
+          "probe_batches": 8,
+          "before_score": 62.28074045250523,
+          "after_score": 61.13564262353676,
+          "score_improvement": 1.145097828968467,
+          "before_loss": 0.0029001324146520346,
+          "after_loss": 0.0003482763313513715,
+          "loss_improvement": 0.002551856083300663,
+          "score_name": "perplexity"
+        }
+      ]
+    }
+  },
+  "train": {
+    "metadata": {
+      "split": "train",
+      "num_samples": 128
+    },
+    "losses": [
+      0.004823163675609976,
+      0.0006448116328101605,
+      0.004338540573371574,
+      0.0006903180910740048
+    ],
+    "scores": {
+      "perplexity": [
+        1.0048348138522365,
+        1.0006450195685217,
+        1.0043479656659777,
+        1.0006905564154442
+      ]
+    },
+    "records": [
+      {
+        "epoch": null,
+        "step": 4,
+        "window_start_step": 1,
+        "window_end_step": 4,
+        "aggregation": "step_window",
+        "split": "train",
+        "training_mode": "boosting",
+        "learner_id": 1,
+        "num_samples": 128,
+        "num_batches": 4,
+        "avg_loss": 0.004823163675609976,
+        "avg_score": 1.0048348138522365,
+        "score_name": "perplexity",
+        "duration_sec": 6.1960033000214025,
+        "timestamp": "2026-04-10T15:29:44.101380+00:00"
+      },
+      {
+        "epoch": null,
+        "step": 8,
+        "window_start_step": 5,
+        "window_end_step": 8,
+        "aggregation": "step_window",
+        "split": "train",
+        "training_mode": "boosting",
+        "learner_id": 1,
+        "num_samples": 128,
+        "num_batches": 4,
+        "avg_loss": 0.0006448116328101605,
+        "avg_score": 1.0006450195685217,
+        "score_name": "perplexity",
+        "duration_sec": 10.494699899980333,
+        "timestamp": "2026-04-10T15:29:54.596350+00:00"
+      },
+      {
+        "epoch": null,
+        "step": 4,
+        "window_start_step": 1,
+        "window_end_step": 4,
+        "aggregation": "step_window",
+        "split": "train",
+        "training_mode": "boosting",
+        "learner_id": 2,
+        "num_samples": 128,
+        "num_batches": 4,
+        "avg_loss": 0.004338540573371574,
+        "avg_score": 1.0043479656659777,
+        "score_name": "perplexity",
+        "duration_sec": 7.3182987999753095,
+        "timestamp": "2026-04-10T15:30:13.088393+00:00"
+      },
+      {
+        "epoch": null,
+        "step": 8,
+        "window_start_step": 5,
+        "window_end_step": 8,
+        "aggregation": "step_window",
+        "split": "train",
+        "training_mode": "boosting",
+        "learner_id": 2,
+        "num_samples": 128,
+        "num_batches": 4,
+        "avg_loss": 0.0006903180910740048,
+        "avg_score": 1.0006905564154442,
+        "score_name": "perplexity",
+        "duration_sec": 16.247722600004636,
+        "timestamp": "2026-04-10T15:30:29.336313+00:00"
+      }
+    ]
+  },
+  "val": {
+    "metadata": {
+      "split": "val",
+      "num_samples": 256
+    },
+    "losses": [
+      0.00042266712625860237,
+      0.0003137273743050173,
+      0.0006105245192884468,
+      0.00034840004809666425
+    ],
+    "scores": {
+      "perplexity": [
+        62.411629661031874,
+        62.2907271286938,
+        58.41850319427986,
+        61.113065122201405
+      ]
+    },
+    "records": [
+      {
+        "epoch": null,
+        "step": 4,
+        "window_start_step": 1,
+        "window_end_step": 4,
+        "aggregation": "step_window",
+        "split": "val",
+        "training_mode": "boosting",
+        "learner_id": 1,
+        "num_samples": 256,
+        "num_batches": 8,
+        "avg_loss": 0.00042266712625860237,
+        "avg_score": 62.411629661031874,
+        "score_name": "perplexity",
+        "duration_sec": 2.1974296999978833,
+        "timestamp": "2026-04-10T15:29:48.922146+00:00"
+      },
+      {
+        "epoch": null,
+        "step": 8,
+        "window_start_step": 5,
+        "window_end_step": 8,
+        "aggregation": "step_window",
+        "split": "val",
+        "training_mode": "boosting",
+        "learner_id": 1,
+        "num_samples": 256,
+        "num_batches": 8,
+        "avg_loss": 0.0003137273743050173,
+        "avg_score": 62.2907271286938,
+        "score_name": "perplexity",
+        "duration_sec": 2.194116499973461,
+        "timestamp": "2026-04-10T15:29:59.151639+00:00"
+      },
+      {
+        "epoch": null,
+        "step": 4,
+        "window_start_step": 1,
+        "window_end_step": 4,
+        "aggregation": "step_window",
+        "split": "val",
+        "training_mode": "boosting",
+        "learner_id": 2,
+        "num_samples": 256,
+        "num_batches": 8,
+        "avg_loss": 0.0006105245192884468,
+        "avg_score": 58.41850319427986,
+        "score_name": "perplexity",
+        "duration_sec": 4.709604800038505,
+        "timestamp": "2026-04-10T15:30:22.397302+00:00"
+      },
+      {
+        "epoch": null,
+        "step": 8,
+        "window_start_step": 5,
+        "window_end_step": 8,
+        "aggregation": "step_window",
+        "split": "val",
+        "training_mode": "boosting",
+        "learner_id": 2,
+        "num_samples": 256,
+        "num_batches": 8,
+        "avg_loss": 0.00034840004809666425,
+        "avg_score": 61.113065122201405,
+        "score_name": "perplexity",
+        "duration_sec": 4.419244999997318,
+        "timestamp": "2026-04-10T15:30:38.358117+00:00"
+      }
+    ]
+  },
+  "summary": {
+    "avg_train_loss": 0.002624208493216429,
+    "avg_train_score": 1.002629588875545,
+    "avg_val_loss": 0.00042382976698718267,
+    "avg_val_score": 61.05848127655173,
+    "best_epoch": null,
+    "best_metric_name": "loss",
+    "best_metric_value": null,
+    "num_epochs_ran": 4,
+    "boosting_summary": {
+      "per_learner": [
+        {
+          "learner_id": 1,
+          "avg_train_loss": 0.0027339876542100683,
+          "avg_train_score": 1.0027399167103792,
+          "avg_val_loss": 0.00036819725028180983,
+          "avg_val_score": 62.35117839486284,
+          "best_train_loss": 0.0006448116328101605,
+          "best_train_epoch": null,
+          "best_train_step": 8,
+          "primary_score": "perplexity",
+          "uses_post_line_search_metrics": false
+        },
+        {
+          "learner_id": 2,
+          "avg_train_loss": 0.0025144293322227895,
+          "avg_train_score": 1.002519261040711,
+          "avg_val_loss": 0.0004794622836925555,
+          "avg_val_score": 59.765784158240635,
+          "best_train_loss": 0.0006903180910740048,
+          "best_train_epoch": null,
+          "best_train_step": 8,
+          "primary_score": "perplexity",
+          "uses_post_line_search_metrics": false
+        }
+      ]
+    }
+  }
+}

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 import json
-import math
 from logging import Logger
 from pathlib import Path
 from statistics import mean
@@ -31,8 +30,6 @@ class Trainer:
         # Load data and dataloaders
         self.data_module.load_data()
         self.data_module.setup_dataloaders()
-        train_dataloader = self.data_module.train_dataloader
-        val_dataloader = self.data_module.val_dataloader
 
         # Set up training config and device
         self.device = self._resolve_device(str(self.config["training"].get("device", "auto")))
@@ -46,8 +43,6 @@ class Trainer:
 
         # Do not allow default training config
         training_mode = str(self.config["training"].get("mode", "baseline")).lower()
-        epochs = int(self.config["training"]["epochs"])
-        eval_step = int(self.config["training"]["eval_step"])
 
         logger = get_logger("trainer", self.config["training"].get("log_file", "outputs/logs/train.log"))
         run_id = self._build_run_id()
@@ -82,14 +77,14 @@ class Trainer:
         
         if training_mode == "boosting":
             self._run_boosting(
-                train_dataloader=train_dataloader,
-                val_dataloader=val_dataloader,
-                epochs=epochs,
-                eval_step=eval_step,
                 logger=logger,
                 results=results,
             )
         else:
+            epochs = int(self.config["training"]["epochs"])
+            eval_step = int(self.config["training"]["eval_step"])
+            train_dataloader = self.data_module.train_dataloader
+            val_dataloader = self.data_module.val_dataloader
             optimizer = self._build_optimizer(self.config["training"]['optimizer'])
             self._train_loop(
                 train_dataloader=train_dataloader,
@@ -114,10 +109,6 @@ class Trainer:
     def _run_boosting(
         self,
         *,
-        train_dataloader: Iterable[Any] | None,
-        val_dataloader: Iterable[Any] | None,
-        epochs: int,
-        eval_step: int,
         logger: Logger,
         results: dict[str, Any],
     ) -> None:
@@ -125,110 +116,269 @@ class Trainer:
         boosting_config = self.config["training"]['boosting']
 
         # Line search Config
-        alpha_split = str(boosting_config['line_search']['split']).lower()
-        alpha_bounds = tuple(boosting_config['line_search']['alpha_bounds'])
+        max_iters = int(boosting_config["max_iters"])
+        eval_interval = int(boosting_config["eval_interval"])
+        eval_iters = int(boosting_config["eval_iters"])
+        log_interval = int(boosting_config["log_interval"])
+        if max_iters <= 0:
+            raise ValueError("training.boosting.max_iters must be > 0")
+        if eval_interval <= 0:
+            raise ValueError("training.boosting.eval_interval must be > 0")
+        if eval_iters <= 0:
+            raise ValueError("training.boosting.eval_iters must be > 0")
+        if log_interval <= 0:
+            raise ValueError("training.boosting.log_interval must be > 0")
+
+        line_search_config = boosting_config["line_search"]
+        alpha_split = str(line_search_config["split"]).lower()
+        alpha_bounds = tuple(line_search_config["alpha_bounds"])
 
         num_learners = self.model.num_learners
 
         results["metadata"]["boosting"] = {
             "num_learners": num_learners,
-            "epochs_per_learner": self.config["training"]['epochs'],
-            "shrinkage": self.config["model"]['params']['shrinkage'],
+            "max_iters_per_learner": max_iters,
+            "eval_interval": eval_interval,
+            "eval_iters": eval_iters,
+            "log_interval": log_interval,
+            "shrinkage": self.config["model"]["params"]["shrinkage"],
             "line_search": {
                 "split": alpha_split,
                 "alpha_bounds": list(alpha_bounds),
             },
             "learner_alphas": [],
+            "learner_progress": [],
         }
+
+        get_batch = getattr(self.data_module, "get_batch", None)
+        if not callable(get_batch):
+            raise RuntimeError("Data module must provide get_batch(split) for boosting")
 
         for learner_idx in range(num_learners):
             # Set active learner in the model for current stage
             self.model.begin_learner_stage(learner_idx)
 
+            probe_batches = [get_batch("val") for _ in range(eval_iters)]
+            before_stats = self._evaluate_batches(probe_batches)
+
             # Init specific learner optimizer
             optimizer = self._build_optimizer(self.config["training"]['optimizer'])
             logger.info(
-                "mode=boosting stage_start learner=%d/%d epochs=%d",
+                "mode=boosting stage_start learner=%d/%d max_iters=%d eval_interval=%d",
                 learner_idx + 1,
                 num_learners,
-                epochs,
+                max_iters,
+                eval_interval,
             )
 
-            self._train_loop(
-                train_dataloader=train_dataloader,
-                val_dataloader=val_dataloader,
-                epochs=epochs,
-                eval_step=eval_step,
+            self._train_steps_loop(
+                max_iters=max_iters,
+                eval_interval=eval_interval,
+                eval_iters=eval_iters,
+                log_interval=log_interval,
+                alpha_bounds=alpha_bounds,
                 optimizer=optimizer,
                 logger=logger,
                 results=results,
-                training_mode="boosting",
                 learner_id=learner_idx + 1,
             )
 
-            search_loader = val_dataloader if alpha_split == "val" and val_dataloader is not None else train_dataloader
-            alpha = 0.0
-            if search_loader is not None and hasattr(self.model, "line_search_active_learner_alpha"):
-                logger.info(
-                    "mode=boosting phase=alpha-search learner=%d split=%s alpha_bounds=%s status=start",
-                    learner_idx + 1,
-                    alpha_split,
-                    list(alpha_bounds),
-                )
-                alpha = float(
-                    self.model.line_search_active_learner_alpha(
-                        search_loader,
-                        alpha_bounds=alpha_bounds,
-                    )
-                )
-            if hasattr(self.model, "set_learner_alpha"):
-                self.model.set_learner_alpha(learner_idx, alpha)
-
-            results["metadata"]["boosting"]["learner_alphas"].append(float(alpha))
+            after_stats = self._evaluate_batches(probe_batches)
+            final_alpha = float(self.model.get_learner_alpha(learner_idx))
+            results["metadata"]["boosting"]["learner_alphas"].append(final_alpha)
+            results["metadata"]["boosting"]["learner_progress"].append(
+                {
+                    "learner_id": learner_idx + 1,
+                    "alpha": final_alpha,
+                    "probe_split": "val",
+                    "probe_batches": int(eval_iters),
+                    "before_score": float(before_stats["score"]),
+                    "after_score": float(after_stats["score"]),
+                    "score_improvement": float(before_stats["score"] - after_stats["score"]),
+                    "before_loss": float(before_stats["loss"]),
+                    "after_loss": float(after_stats["loss"]),
+                    "loss_improvement": float(before_stats["loss"] - after_stats["loss"]),
+                    "score_name": after_stats["score_name"],
+                }
+            )
             logger.info(
-                "mode=boosting phase=alpha-search learner=%d split=%s status=done best_alpha=%.6f",
+                "mode=boosting stage_probe learner=%d score_before=%.6f score_after=%.6f score_delta=%.6f alpha=%.6f",
                 learner_idx + 1,
-                alpha_split,
-                alpha,
+                float(before_stats["score"]),
+                float(after_stats["score"]),
+                float(before_stats["score"] - after_stats["score"]),
+                final_alpha,
             )
 
-            if val_dataloader is not None:
-                eval_start = perf_counter()
-                eval_stats = self._run_dataloader(
-                    val_dataloader,
-                    is_train=False,
-                    optimizer=None,
-                    score_mode="default",
-                    split_name="val-post-alpha",
-                )
-                eval_duration = perf_counter() - eval_start
-                eval_record = {
-                    "epoch": None,
-                    "split": "val",
-                    "training_mode": "boosting",
-                    "learner_id": learner_idx + 1,
-                    "post_line_search": True,
-                    "num_samples": int(eval_stats["num_samples"]),
-                    "num_batches": int(eval_stats["num_batches"]),
-                    "avg_loss": eval_stats["loss"],
-                    "avg_score": eval_stats["score"],
-                    "score_name": eval_stats["score_name"],
-                    "duration_sec": eval_duration,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-                self._append_split_record(results, "val", eval_record)
+            logger.info("mode=boosting stage_end learner=%d/%d", learner_idx + 1, num_learners)
+
+    def _train_steps_loop(
+        self,
+        *,
+        max_iters: int,
+        eval_interval: int,
+        eval_iters: int,
+        log_interval: int,
+        alpha_bounds: tuple[float, ...],
+        optimizer: torch.optim.Optimizer,
+        logger: Logger,
+        results: dict[str, Any],
+        learner_id: int,
+    ) -> None:
+        self.score.reset()
+
+        get_batch = getattr(self.data_module, "get_batch", None)
+        if not callable(get_batch):
+            raise RuntimeError("Data module must provide get_batch(split) for boosting")
+
+        window_start_step = 1
+        window_loss_sum = 0.0
+        window_samples = 0
+        window_batches = 0
+        window_start_time = perf_counter()
+
+        for step in range(1, max_iters + 1):
+            batch_stats = self._process_batch(
+                get_batch("train"),
+                is_train=True,
+                optimizer=optimizer,      
+            )
+            window_loss_sum += batch_stats["loss"]
+            window_samples += int(batch_stats["num_samples"])
+            window_batches += 1
+
+            if step % log_interval == 0 or step == max_iters:
                 logger.info(
-                    "mode=boosting phase=val-post-alpha learner=%d avg_loss=%.6f avg_%s=%.6f samples=%d batches=%d time=%.2fs",
-                    learner_idx + 1,
-                    eval_stats["loss"],
-                    eval_stats["score_name"],
-                    eval_stats["score"],
-                    int(eval_stats["num_samples"]),
-                    int(eval_stats["num_batches"]),
-                    eval_duration,
+                    "mode=boosting phase=train learner=%d step=%d stage_mse_loss=%.6f",
+                    learner_id,
+                    step,
+                    batch_stats["loss"],
                 )
 
-            logger.info("mode=boosting stage_end learner=%d/%d", learner_idx + 1, num_learners)
+            is_eval_step = step % eval_interval == 0
+            is_last_step = step == max_iters
+            if not is_eval_step and not is_last_step:
+                continue
+
+            score_name = self._primary_score_name()
+            score_metrics = self.score.compute()
+            avg_score = self._extract_primary_score(score_metrics, score_name)
+            avg_loss = window_loss_sum / float(window_batches)
+            duration = perf_counter() - window_start_time
+
+            train_record = {
+                "epoch": None,
+                "step": step,
+                "window_start_step": window_start_step,
+                "window_end_step": step,
+                "aggregation": "step_window",
+                "split": "train",
+                "training_mode": "boosting",
+                "learner_id": learner_id,
+                "num_samples": int(window_samples),
+                "num_batches": int(window_batches),
+                "avg_loss": avg_loss,
+                "avg_score": float(avg_score),
+                "score_name": score_name,
+                "duration_sec": duration,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            self._append_split_record(results, "train", train_record)
+
+            logger.info(
+                "mode=boosting phase=train learner=%d steps=%d-%d avg_stage_mse=%.6f samples=%d batches=%d time=%.2fs",
+                learner_id,
+                window_start_step,
+                step,
+                avg_loss,
+                int(window_samples),
+                int(window_batches),
+                duration,
+            )
+
+            self.score.reset()
+            window_start_step = step + 1
+            window_loss_sum = 0.0
+            window_samples = 0
+            window_batches = 0
+            window_start_time = perf_counter()
+
+            if not is_eval_step:
+                continue
+
+            val_batches = [get_batch("val") for _ in range(eval_iters)]
+            line_search = getattr(self.model, "line_search_active_learner_alpha", None)
+            if callable(line_search):
+                alpha = float(line_search(iter(val_batches), alpha_bounds=alpha_bounds))
+                if hasattr(self.model, "set_learner_alpha"):
+                    self.model.set_learner_alpha(learner_id - 1, alpha)
+                logger.info(
+                    "mode=boosting phase=alpha-search learner=%d split=%s status=done best_alpha=%.6f",
+                    learner_id,
+                    "val",
+                    alpha,
+                )
+
+            val_start = perf_counter()
+            val_stats = self._evaluate_batches(val_batches)
+            val_duration = perf_counter() - val_start
+
+            val_record = {
+                "epoch": None,
+                "step": step,
+                "window_start_step": step - eval_interval + 1,
+                "window_end_step": step,
+                "aggregation": "step_window",
+                "split": "val",
+                "training_mode": "boosting",
+                "learner_id": learner_id,
+                "num_samples": int(val_stats["num_samples"]),
+                "num_batches": int(eval_iters),
+                "avg_loss": float(val_stats["loss"]),
+                "avg_score": float(val_stats["score"]),
+                "score_name": val_stats["score_name"],
+                "duration_sec": val_duration,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            self._append_split_record(results, "val", val_record)
+
+            logger.info(
+                "mode=boosting phase=val-post-alpha learner=%d step=%d avg_stage_mse=%.6f avg_%s=%.6f samples=%d batches=%d time=%.2fs",
+                learner_id,
+                step,
+                float(val_stats["loss"]),
+                val_stats["score_name"],
+                float(val_stats["score"]),
+                int(val_stats["num_samples"]),
+                int(eval_iters),
+                val_duration,
+            )
+            self.score.reset()
+
+    def _evaluate_batches(self, batches: list[Any]) -> dict[str, float]:
+        self.score.reset()
+        total_loss = 0.0
+        total_samples = 0
+        for batch in batches:
+            batch_stats = self._process_batch(
+                batch,
+                is_train=False,
+                optimizer=None,
+            )
+            total_loss += batch_stats["loss"]
+            total_samples += int(batch_stats["num_samples"])
+
+        score_name = self._primary_score_name()
+        score_metrics = self.score.compute()
+        avg_score = self._extract_primary_score(score_metrics, score_name)
+        avg_loss = total_loss / float(max(1, len(batches)))
+
+        return {
+            "loss": float(avg_loss),
+            "score": float(avg_score),
+            "score_name": score_name,
+            "num_samples": float(total_samples),
+        }
 
     def _build_optimizer(self, optimizer_config: dict[str, Any]) -> torch.optim.Optimizer:
         name = str(optimizer_config.get("name", "adamw")).lower()
@@ -271,20 +421,27 @@ class Trainer:
         *,
         is_train: bool,
         optimizer: torch.optim.Optimizer | None,
-        score_mode: str = "default",
     ) -> dict[str, float]:
         batch = self._move_batch_to_device(batch)
+        training_mode = str(self.config["training"].get("mode", "baseline")).lower()
+        is_boosting = training_mode == "boosting"
 
         if is_train:
             if optimizer is None:
                 raise ValueError("Optimizer is required when is_train=True")
             self.model.train()
             optimizer.zero_grad()
-            output = self.model.forward(batch)
+            if is_boosting:
+                output = self.model.forward(batch, mode="train")
+            else:
+                output = self.model.forward(batch)
         else:
             self.model.eval()
             with torch.no_grad():
-                output = self.model.forward(batch)
+                if is_boosting:
+                    output = self.model.forward(batch, mode="eval")
+                else:
+                    output = self.model.forward(batch)
 
         if not isinstance(output, dict):
             raise TypeError("Model forward output must be a dict and include a 'loss' key")
@@ -300,12 +457,15 @@ class Trainer:
             loss.backward()
             optimizer.step()
 
-        if score_mode == "pre_alpha":
-            predictions = output.get("pre_alpha_predictions", output.get("predictions"))
-            metric_loss = output.get("pre_alpha_metric_loss", output.get("metric_loss", loss))
+        if is_boosting and is_train:
+            # Boosting train forward returns stage loss only.
+            predictions = None
+            metric_loss = loss
         else:
             predictions = output.get("predictions")
-            metric_loss = output.get("metric_loss", loss)
+            metric_loss = output.get("metric_loss")
+            if metric_loss is None:
+                raise KeyError("Model forward output is missing required key: 'metric_loss'")
 
         targets = output.get("targets")
         if targets is None and isinstance(batch, dict):
@@ -320,14 +480,9 @@ class Trainer:
             loss=score_loss,
         )
 
-        batch_primary_score = score_loss
-        if self._primary_score_name() == "perplexity":
-            batch_primary_score = float(math.exp(score_loss))
-
         return {
             "loss": float(loss.detach().item()),
             "num_samples": float(self._batch_size(batch)),
-            "batch_primary_score": batch_primary_score,
         }
 
     def _resolve_device(self, requested: str) -> torch.device:
@@ -369,7 +524,6 @@ class Trainer:
         *,
         is_train: bool,
         optimizer: torch.optim.Optimizer | None,
-        score_mode: str = "default",
         logger: Logger | None = None,
         training_mode: str | None = None,
         learner_id: int | None = None,
@@ -389,10 +543,12 @@ class Trainer:
         total_loss = 0.0
         num_samples = 0
         iterable = tqdm.tqdm(dataloader, desc="Processing batches")
+        num_batches = 0
         for batch_idx, batch in enumerate(iterable, start=1):
-            batch_stats = self._process_batch(batch, is_train=is_train, optimizer=optimizer, score_mode=score_mode)
+            batch_stats = self._process_batch(batch, is_train=is_train, optimizer=optimizer)
             total_loss += batch_stats["loss"]
             num_samples += int(batch_stats["num_samples"])
+            num_batches += 1
             if (
                 logger is not None
                 and is_train
@@ -400,16 +556,13 @@ class Trainer:
                 and learner_id is not None
                 and epoch is not None
             ):
-                score_name = self._primary_score_name()
                 logger.info(
-                    "mode=boosting phase=%s learner=%d epoch=%d batch=%d stage_mse_loss=%.6f %s=%.6f",
+                    "mode=boosting phase=%s learner=%d epoch=%d batch=%d stage_mse_loss=%.6f",
                     split_name,
                     learner_id,
                     epoch,
                     batch_idx,
                     batch_stats["loss"],
-                    score_name,
-                    batch_stats["batch_primary_score"],
                 )
 
         primary_score_name = self._primary_score_name()
@@ -417,7 +570,6 @@ class Trainer:
         primary_score = self._extract_primary_score(score_metrics, primary_score_name)
 
         # Save losses and scores to results for summary stats
-        num_batches = len(dataloader)
         if num_batches == 0:
             return {
                 "loss": 0.0,
@@ -452,8 +604,7 @@ class Trainer:
             train_stats = self._run_dataloader(
                 train_dataloader,
                 is_train=True,
-                optimizer=optimizer,
-                score_mode="pre_alpha" if training_mode == "boosting" else "default",
+                optimizer=optimizer,                
                 logger=logger,
                 training_mode=training_mode,
                 learner_id=learner_id,
@@ -520,9 +671,8 @@ class Trainer:
                 val_stats = self._run_dataloader(
                     val_dataloader,
                     is_train=False,
-                    optimizer=None,
-                    score_mode="pre_alpha" if training_mode == "boosting" else "default",
-                    split_name="val-pre-alpha",
+                    optimizer=None,                    
+                    split_name="val",
                 )
                 val_duration = perf_counter() - val_start
                 val_record = {
@@ -555,7 +705,7 @@ class Trainer:
                 else:
                     if training_mode == "boosting":
                         logger.info(
-                            "mode=boosting phase=val-pre-alpha learner=%d epoch=%s avg_stage_mse=%.6f avg_%s=%.6f samples=%d batches=%d time=%.2fs",
+                            "mode=boosting phase=val learner=%d epoch=%s avg_stage_mse=%.6f avg_%s=%.6f samples=%d batches=%d time=%.2fs",
                             learner_id,
                             epoch,
                             val_stats["loss"],
@@ -702,11 +852,17 @@ class Trainer:
 
             best_train_loss = min(train_losses) if train_losses else None
             best_train_epoch = None
+            best_train_step = None
             if best_train_loss is not None:
-                best_train_epoch = next(
-                    (int(r["epoch"]) for r in train_source if float(r["avg_loss"]) == best_train_loss),
+                best_record = next(
+                    (r for r in train_source if float(r["avg_loss"]) == best_train_loss),
                     None,
                 )
+                if best_record is not None:
+                    if best_record.get("epoch") is not None:
+                        best_train_epoch = int(best_record["epoch"])
+                    if best_record.get("step") is not None:
+                        best_train_step = int(best_record["step"])
 
             per_learner.append(
                 {
@@ -717,6 +873,7 @@ class Trainer:
                     "avg_val_score": float(mean(val_scores)) if val_scores else 0.0,
                     "best_train_loss": best_train_loss,
                     "best_train_epoch": best_train_epoch,
+                    "best_train_step": best_train_step,
                     "primary_score": primary_score,
                     "uses_post_line_search_metrics": bool(learner_train_post or learner_val_post),
                 }

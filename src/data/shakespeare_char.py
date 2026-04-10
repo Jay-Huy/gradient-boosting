@@ -7,23 +7,8 @@ from urllib.request import urlopen
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset
 
 from src.data.base import BaseDataModule
-
-
-class CharSequenceDataset(Dataset[dict[str, torch.Tensor]]):
-    def __init__(self, tokens: torch.Tensor, block_size: int) -> None:
-        self.tokens = tokens
-        self.block_size = block_size
-
-    def __len__(self) -> int:
-        return max(0, self.tokens.numel() - self.block_size)
-
-    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
-        x = self.tokens[index : index + self.block_size]
-        y = self.tokens[index + 1 : index + 1 + self.block_size]
-        return {"input_ids": x.long(), "targets": y.long()}
 
 
 class ShakespeareCharDataModule(BaseDataModule):
@@ -46,6 +31,32 @@ class ShakespeareCharDataModule(BaseDataModule):
         self._train_tokens: torch.Tensor | None = None
         self._val_tokens: torch.Tensor | None = None
         self.meta: dict[str, Any] = {}
+
+    def get_batch(self, split: str) -> dict[str, torch.Tensor]:
+        if split not in {"train", "val"}:
+            raise ValueError(f"Unsupported split: {split}. Expected 'train' or 'val'.")
+
+        data_file = self.train_bin_file if split == "train" else self.val_bin_file
+        data = np.memmap(data_file, dtype=np.uint16, mode="r")
+        max_start = int(len(data)) - self.block_size - 1
+        if max_start <= 0:
+            raise RuntimeError("Not enough tokens to construct a batch for the configured block_size")
+
+        ix = torch.randint(max_start + 1, (self.batch_size,))
+        x = torch.stack([torch.from_numpy((data[int(i) : int(i) + self.block_size]).astype(np.int64)) for i in ix])
+        y = torch.stack([
+            torch.from_numpy((data[int(i) + 1 : int(i) + 1 + self.block_size]).astype(np.int64))
+            for i in ix
+        ])
+
+        if self.pin_memory:
+            x = x.pin_memory()
+            y = y.pin_memory()
+        return {"input_ids": x.long(), "targets": y.long()}
+
+    def iter_random_batches(self, split: str, num_batches: int):
+        for _ in range(num_batches):
+            yield self.get_batch(split)
 
     def encode(self, text: str) -> list[int]:
         stoi = self.meta["stoi"]
@@ -71,26 +82,9 @@ class ShakespeareCharDataModule(BaseDataModule):
         self.meta = self._get_meta() # Get metadata for vocab size and encoding/decoding
 
     def setup_dataloaders(self) -> None:
-        if self._train_tokens is None or self._val_tokens is None:
-            raise RuntimeError("Tokens are not loaded. Call load_data() before setup_dataloaders().")
-
-        train_dataset = CharSequenceDataset(self._train_tokens, self.block_size)
-        val_dataset = CharSequenceDataset(self._val_tokens, self.block_size)
-
-        self.train_dataloader = DataLoader(
-            train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-        )
-        self.val_dataloader = DataLoader(
-            val_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-        )
+        # Kept for interface compatibility; training uses get_batch random sampling.
+        self.train_dataloader = None
+        self.val_dataloader = None
 
     def _prepared_files_exist(self) -> bool:
         return self.train_bin_file.exists() and self.val_bin_file.exists() and self.meta_file.exists()

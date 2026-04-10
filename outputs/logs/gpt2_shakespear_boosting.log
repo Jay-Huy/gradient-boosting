@@ -1622,3 +1622,319 @@ training:
 2026-04-10 18:27:43,466 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=1489 stage_mse_loss=0.000176 perplexity=50.984670
 2026-04-10 18:27:43,530 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=1490 stage_mse_loss=0.000178 perplexity=51.192297
 2026-04-10 18:27:43,595 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=1491 stage_mse_loss=0.000176 perplexity=51.198559
+2026-04-10 20:49:09,877 | INFO | Loaded config:
+runtime:
+  mode: train
+data:
+  type: shakespeare_char
+  params:
+    dataset_dir: data/shakespeare_char
+    input_file: input.txt
+    train_bin: train.bin
+    val_bin: val.bin
+    meta_file: meta.pkl
+    block_size: 256
+    batch_size: 32
+    num_workers: 0
+    pin_memory: false
+    val_split: 0.1
+    download_if_missing: false
+    reprepare: false
+model:
+  type: gpt2_boosting_char
+  params:
+    num_learners: 2
+    shrinkage: 1.0
+    weak_learner:
+      block_size: 256
+      vocab_size: 65
+      n_layer: 2
+      n_head: 6
+      n_embd: 384
+      dropout: 0.2
+      bias: true
+score:
+  type: perplexity
+  params:
+    metrics:
+    - perplexity
+inference:
+  enabled: false
+  output_dir: outputs/predictions
+training:
+  mode: boosting
+  epochs: 1
+  eval_step: 2
+  results_dir: results/runs
+  boosting:
+    line_search:
+      split: val
+      alpha_bounds:
+      - 0.0
+      - 1.0
+  optimizer:
+    name: adamw
+    lr: 0.001
+    weight_decay: 0.1
+    betas:
+    - 0.9
+    - 0.95
+  log_file: outputs/logs/gpt2_shakespear_boosting.log
+  early_stopping:
+    enabled: true
+    metric: loss
+    mode: min
+    patience: 5
+
+2026-04-10 20:49:11,619 | INFO | mode=boosting stage_start learner=1/2 epochs=1
+2026-04-10 20:49:12,390 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=1 stage_mse_loss=0.002887 perplexity=66.902995
+2026-04-10 20:49:12,459 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=2 stage_mse_loss=0.007180 perplexity=92.424930
+2026-04-10 20:49:12,528 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=3 stage_mse_loss=0.004988 perplexity=67.630906
+2026-04-10 20:49:12,598 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=4 stage_mse_loss=0.000884 perplexity=59.937637
+2026-04-10 20:49:12,665 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=5 stage_mse_loss=0.000777 perplexity=61.014070
+2026-04-10 20:49:12,730 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=6 stage_mse_loss=0.000713 perplexity=62.578345
+2026-04-10 20:49:12,794 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=7 stage_mse_loss=0.000639 perplexity=64.307040
+2026-04-10 20:49:12,858 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=8 stage_mse_loss=0.000593 perplexity=65.015976
+2026-04-10 20:49:12,921 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=9 stage_mse_loss=0.000567 perplexity=65.358798
+2026-04-10 20:49:12,985 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=10 stage_mse_loss=0.000546 perplexity=64.728789
+2026-04-10 20:49:13,048 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=11 stage_mse_loss=0.000532 perplexity=63.659813
+2026-04-10 20:49:13,111 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=12 stage_mse_loss=0.000529 perplexity=62.469227
+2026-04-10 20:49:13,174 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=13 stage_mse_loss=0.000526 perplexity=61.334679
+2026-04-10 20:49:13,237 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=14 stage_mse_loss=0.000513 perplexity=60.709609
+2026-04-10 20:49:13,300 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=15 stage_mse_loss=0.000494 perplexity=60.779415
+2026-04-10 20:49:13,364 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=16 stage_mse_loss=0.000474 perplexity=61.294653
+2026-04-10 20:49:13,428 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=17 stage_mse_loss=0.000466 perplexity=62.592730
+2026-04-10 20:49:13,494 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=18 stage_mse_loss=0.000460 perplexity=63.505643
+2026-04-10 20:49:13,557 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=19 stage_mse_loss=0.000458 perplexity=64.332220
+2026-04-10 20:49:13,625 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=20 stage_mse_loss=0.000455 perplexity=64.770440
+2026-04-10 20:49:13,688 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=21 stage_mse_loss=0.000447 perplexity=64.462879
+2026-04-10 20:49:13,752 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=22 stage_mse_loss=0.000436 perplexity=63.796924
+2026-04-10 20:49:13,815 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=23 stage_mse_loss=0.000426 perplexity=62.876255
+2026-04-10 20:49:13,878 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=24 stage_mse_loss=0.000418 perplexity=61.983768
+2026-04-10 20:49:13,943 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=25 stage_mse_loss=0.000416 perplexity=61.668940
+2026-04-10 20:49:14,007 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=26 stage_mse_loss=0.000415 perplexity=61.791390
+2026-04-10 20:49:14,070 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=27 stage_mse_loss=0.000413 perplexity=62.167495
+2026-04-10 20:49:14,145 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=28 stage_mse_loss=0.000406 perplexity=62.593834
+2026-04-10 20:49:14,209 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=29 stage_mse_loss=0.000399 perplexity=62.963112
+2026-04-10 20:49:14,272 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=30 stage_mse_loss=0.000392 perplexity=63.112083
+2026-04-10 20:49:14,336 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=31 stage_mse_loss=0.000391 perplexity=63.088945
+2026-04-10 20:49:14,399 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=32 stage_mse_loss=0.000391 perplexity=63.206981
+2026-04-10 20:49:14,462 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=33 stage_mse_loss=0.000388 perplexity=63.276823
+2026-04-10 20:49:14,525 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=34 stage_mse_loss=0.000383 perplexity=63.144322
+2026-04-10 20:49:14,589 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=35 stage_mse_loss=0.000380 perplexity=63.063831
+2026-04-10 20:49:14,653 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=36 stage_mse_loss=0.000376 perplexity=62.712290
+2026-04-10 20:49:14,716 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=37 stage_mse_loss=0.000374 perplexity=62.398016
+2026-04-10 20:49:14,779 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=38 stage_mse_loss=0.000374 perplexity=62.191837
+2026-04-10 20:49:14,843 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=39 stage_mse_loss=0.000373 perplexity=62.289509
+2026-04-10 20:49:14,909 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=40 stage_mse_loss=0.000369 perplexity=62.584433
+2026-04-10 20:49:14,972 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=41 stage_mse_loss=0.000366 perplexity=62.821952
+2026-04-10 20:49:15,036 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=42 stage_mse_loss=0.000365 perplexity=62.907864
+2026-04-10 20:49:15,099 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=43 stage_mse_loss=0.000364 perplexity=63.036291
+2026-04-10 20:49:15,162 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=44 stage_mse_loss=0.000362 perplexity=63.058328
+2026-04-10 20:49:15,225 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=45 stage_mse_loss=0.000359 perplexity=62.770629
+2026-04-10 20:49:15,289 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=46 stage_mse_loss=0.000358 perplexity=62.644087
+2026-04-10 20:49:15,357 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=47 stage_mse_loss=0.000356 perplexity=62.441293
+2026-04-10 20:49:15,419 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=48 stage_mse_loss=0.000355 perplexity=62.445938
+2026-04-10 20:49:15,483 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=49 stage_mse_loss=0.000353 perplexity=62.582404
+2026-04-10 20:49:15,547 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=50 stage_mse_loss=0.000351 perplexity=62.595685
+2026-04-10 20:49:15,610 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=51 stage_mse_loss=0.000350 perplexity=62.698386
+2026-04-10 20:49:15,673 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=52 stage_mse_loss=0.000348 perplexity=62.599595
+2026-04-10 20:49:15,736 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=53 stage_mse_loss=0.000347 perplexity=62.830430
+2026-04-10 20:49:15,800 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=54 stage_mse_loss=0.000344 perplexity=62.916384
+2026-04-10 20:49:15,864 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=55 stage_mse_loss=0.000342 perplexity=62.781165
+2026-04-10 20:49:15,928 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=56 stage_mse_loss=0.000341 perplexity=62.511898
+2026-04-10 20:49:15,991 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=57 stage_mse_loss=0.000340 perplexity=62.348644
+2026-04-10 20:49:16,055 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=58 stage_mse_loss=0.000339 perplexity=62.462347
+2026-04-10 20:49:16,119 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=59 stage_mse_loss=0.000336 perplexity=62.567306
+2026-04-10 20:49:16,183 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=60 stage_mse_loss=0.000335 perplexity=62.810779
+2026-04-10 20:49:16,247 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=61 stage_mse_loss=0.000334 perplexity=62.817279
+2026-04-10 20:49:16,310 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=62 stage_mse_loss=0.000331 perplexity=62.602938
+2026-04-10 20:49:16,374 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=63 stage_mse_loss=0.000331 perplexity=62.660877
+2026-04-10 20:49:16,437 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=64 stage_mse_loss=0.000329 perplexity=62.478909
+2026-04-10 20:49:16,500 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=65 stage_mse_loss=0.000329 perplexity=62.599804
+2026-04-10 20:49:16,563 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=66 stage_mse_loss=0.000325 perplexity=62.550958
+2026-04-10 20:49:16,626 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=67 stage_mse_loss=0.000324 perplexity=62.534616
+2026-04-10 20:49:16,691 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=68 stage_mse_loss=0.000323 perplexity=62.407746
+2026-04-10 20:49:16,755 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=69 stage_mse_loss=0.000321 perplexity=62.390935
+2026-04-10 20:49:16,819 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=70 stage_mse_loss=0.000319 perplexity=62.434862
+2026-04-10 20:49:16,883 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=71 stage_mse_loss=0.000317 perplexity=62.519648
+2026-04-10 20:49:16,947 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=72 stage_mse_loss=0.000317 perplexity=62.481412
+2026-04-10 20:49:17,011 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=73 stage_mse_loss=0.000316 perplexity=62.417954
+2026-04-10 20:49:17,074 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=74 stage_mse_loss=0.000314 perplexity=62.469525
+2026-04-10 20:49:17,138 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=75 stage_mse_loss=0.000312 perplexity=62.671634
+2026-04-10 20:49:17,201 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=76 stage_mse_loss=0.000310 perplexity=62.489188
+2026-04-10 20:49:17,265 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=77 stage_mse_loss=0.000310 perplexity=62.562860
+2026-04-10 20:49:17,329 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=78 stage_mse_loss=0.000308 perplexity=62.565456
+2026-04-10 20:49:17,392 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=79 stage_mse_loss=0.000306 perplexity=62.446652
+2026-04-10 20:49:17,455 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=80 stage_mse_loss=0.000305 perplexity=62.400277
+2026-04-10 20:49:17,519 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=81 stage_mse_loss=0.000304 perplexity=62.406169
+2026-04-10 20:49:17,582 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=82 stage_mse_loss=0.000302 perplexity=62.548721
+2026-04-10 20:49:17,646 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=83 stage_mse_loss=0.000301 perplexity=62.528950
+2026-04-10 20:49:17,709 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=84 stage_mse_loss=0.000299 perplexity=62.449839
+2026-04-10 20:49:17,773 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=85 stage_mse_loss=0.000297 perplexity=62.409859
+2026-04-10 20:49:17,837 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=86 stage_mse_loss=0.000295 perplexity=62.272344
+2026-04-10 20:49:17,900 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=87 stage_mse_loss=0.000294 perplexity=62.187300
+2026-04-10 20:49:17,978 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=88 stage_mse_loss=0.000292 perplexity=62.202929
+2026-04-10 20:49:18,041 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=89 stage_mse_loss=0.000291 perplexity=62.423937
+2026-04-10 20:49:18,104 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=90 stage_mse_loss=0.000289 perplexity=62.443675
+2026-04-10 20:49:18,171 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=91 stage_mse_loss=0.000288 perplexity=62.301748
+2026-04-10 20:49:18,235 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=92 stage_mse_loss=0.000286 perplexity=62.359735
+2026-04-10 20:49:18,298 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=93 stage_mse_loss=0.000284 perplexity=62.334673
+2026-04-10 20:49:18,361 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=94 stage_mse_loss=0.000282 perplexity=62.200230
+2026-04-10 20:49:18,425 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=95 stage_mse_loss=0.000281 perplexity=62.145444
+2026-04-10 20:49:18,488 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=96 stage_mse_loss=0.000279 perplexity=62.106725
+2026-04-10 20:49:18,552 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=97 stage_mse_loss=0.000278 perplexity=62.235564
+2026-04-10 20:49:18,615 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=98 stage_mse_loss=0.000276 perplexity=62.178642
+2026-04-10 20:49:18,679 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=99 stage_mse_loss=0.000275 perplexity=62.052583
+2026-04-10 20:49:18,743 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=100 stage_mse_loss=0.000272 perplexity=62.024421
+2026-04-10 20:49:18,809 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=101 stage_mse_loss=0.000270 perplexity=62.160410
+2026-04-10 20:49:18,873 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=102 stage_mse_loss=0.000268 perplexity=61.856364
+2026-04-10 20:49:18,936 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=103 stage_mse_loss=0.000267 perplexity=61.569011
+2026-04-10 20:49:18,999 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=104 stage_mse_loss=0.000265 perplexity=61.902187
+2026-04-10 20:49:19,063 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=105 stage_mse_loss=0.000263 perplexity=61.994675
+2026-04-10 20:49:19,126 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=106 stage_mse_loss=0.000262 perplexity=61.789888
+2026-04-10 20:49:19,190 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=107 stage_mse_loss=0.000260 perplexity=61.723600
+2026-04-10 20:49:19,254 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=108 stage_mse_loss=0.000258 perplexity=61.678292
+2026-04-10 20:49:19,317 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=109 stage_mse_loss=0.000257 perplexity=61.621379
+2026-04-10 20:49:19,381 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=110 stage_mse_loss=0.000255 perplexity=61.724836
+2026-04-10 20:49:19,445 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=111 stage_mse_loss=0.000252 perplexity=61.372067
+2026-04-10 20:49:19,508 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=112 stage_mse_loss=0.000251 perplexity=61.079100
+2026-04-10 20:49:19,572 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=113 stage_mse_loss=0.000250 perplexity=61.277441
+2026-04-10 20:49:19,636 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=114 stage_mse_loss=0.000250 perplexity=61.802293
+2026-04-10 20:49:19,699 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=115 stage_mse_loss=0.000250 perplexity=60.799068
+2026-04-10 20:49:19,763 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=116 stage_mse_loss=0.000247 perplexity=61.247673
+2026-04-10 20:49:19,827 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=117 stage_mse_loss=0.000244 perplexity=61.251441
+2026-04-10 20:49:19,891 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=118 stage_mse_loss=0.000242 perplexity=61.086702
+2026-04-10 20:49:19,954 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=119 stage_mse_loss=0.000242 perplexity=61.283577
+2026-04-10 20:49:20,018 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=120 stage_mse_loss=0.000240 perplexity=60.946929
+2026-04-10 20:49:20,082 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=121 stage_mse_loss=0.000238 perplexity=61.101035
+2026-04-10 20:49:20,145 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=122 stage_mse_loss=0.000237 perplexity=61.290766
+2026-04-10 20:49:20,209 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=123 stage_mse_loss=0.000236 perplexity=60.861983
+2026-04-10 20:49:20,272 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=124 stage_mse_loss=0.000235 perplexity=61.321812
+2026-04-10 20:49:20,336 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=125 stage_mse_loss=0.000233 perplexity=61.373179
+2026-04-10 20:49:20,399 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=126 stage_mse_loss=0.000231 perplexity=60.863057
+2026-04-10 20:49:20,462 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=127 stage_mse_loss=0.000231 perplexity=60.944691
+2026-04-10 20:49:20,527 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=128 stage_mse_loss=0.000230 perplexity=61.198891
+2026-04-10 20:49:20,591 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=129 stage_mse_loss=0.000229 perplexity=60.970067
+2026-04-10 20:49:20,655 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=130 stage_mse_loss=0.000227 perplexity=60.814783
+2026-04-10 20:49:20,720 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=131 stage_mse_loss=0.000228 perplexity=60.785096
+2026-04-10 20:49:20,783 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=132 stage_mse_loss=0.000227 perplexity=60.986582
+2026-04-10 20:49:20,847 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=133 stage_mse_loss=0.000225 perplexity=60.972567
+2026-04-10 20:49:20,912 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=134 stage_mse_loss=0.000225 perplexity=60.492248
+2026-04-10 20:49:20,977 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=135 stage_mse_loss=0.000224 perplexity=60.764202
+2026-04-10 20:49:21,041 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=136 stage_mse_loss=0.000223 perplexity=60.799184
+2026-04-10 20:49:21,104 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=137 stage_mse_loss=0.000224 perplexity=60.616408
+2026-04-10 20:49:21,168 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=138 stage_mse_loss=0.000222 perplexity=60.811768
+2026-04-10 20:49:21,232 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=139 stage_mse_loss=0.000221 perplexity=60.487662
+2026-04-10 20:49:21,295 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=140 stage_mse_loss=0.000222 perplexity=60.154124
+2026-04-10 20:49:21,359 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=141 stage_mse_loss=0.000221 perplexity=60.498075
+2026-04-10 20:49:21,422 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=142 stage_mse_loss=0.000220 perplexity=60.417816
+2026-04-10 20:49:21,487 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=143 stage_mse_loss=0.000219 perplexity=59.791084
+2026-04-10 20:49:21,551 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=144 stage_mse_loss=0.000219 perplexity=59.961135
+2026-04-10 20:49:21,614 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=145 stage_mse_loss=0.000219 perplexity=60.175325
+2026-04-10 20:49:21,678 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=146 stage_mse_loss=0.000218 perplexity=60.061289
+2026-04-10 20:49:21,742 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=147 stage_mse_loss=0.000218 perplexity=60.015827
+2026-04-10 20:49:21,806 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=148 stage_mse_loss=0.000218 perplexity=60.124530
+2026-04-10 20:49:21,869 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=149 stage_mse_loss=0.000217 perplexity=60.127253
+2026-04-10 20:49:21,933 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=150 stage_mse_loss=0.000217 perplexity=59.848646
+2026-04-10 20:49:21,996 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=151 stage_mse_loss=0.000216 perplexity=60.010447
+2026-04-10 20:49:22,062 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=152 stage_mse_loss=0.000215 perplexity=59.645942
+2026-04-10 20:49:22,126 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=153 stage_mse_loss=0.000217 perplexity=59.631012
+2026-04-10 20:49:22,189 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=154 stage_mse_loss=0.000217 perplexity=60.165570
+2026-04-10 20:49:22,253 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=155 stage_mse_loss=0.000216 perplexity=59.934093
+2026-04-10 20:49:22,317 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=156 stage_mse_loss=0.000215 perplexity=59.683696
+2026-04-10 20:49:22,381 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=157 stage_mse_loss=0.000216 perplexity=59.946783
+2026-04-10 20:49:22,451 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=158 stage_mse_loss=0.000214 perplexity=59.805284
+2026-04-10 20:49:22,513 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=159 stage_mse_loss=0.000215 perplexity=59.714183
+2026-04-10 20:49:22,577 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=160 stage_mse_loss=0.000214 perplexity=59.680850
+2026-04-10 20:49:22,640 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=161 stage_mse_loss=0.000215 perplexity=59.745313
+2026-04-10 20:49:22,705 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=162 stage_mse_loss=0.000214 perplexity=59.324683
+2026-04-10 20:49:22,769 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=163 stage_mse_loss=0.000215 perplexity=59.514772
+2026-04-10 20:49:22,833 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=164 stage_mse_loss=0.000214 perplexity=59.747336
+2026-04-10 20:49:22,896 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=165 stage_mse_loss=0.000214 perplexity=59.298239
+2026-04-10 20:49:22,971 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=166 stage_mse_loss=0.000213 perplexity=59.312266
+2026-04-10 20:49:23,035 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=167 stage_mse_loss=0.000213 perplexity=59.467966
+2026-04-10 20:49:23,099 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=168 stage_mse_loss=0.000213 perplexity=59.284047
+2026-04-10 20:49:23,162 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=169 stage_mse_loss=0.000213 perplexity=59.220080
+2026-04-10 20:49:23,227 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=170 stage_mse_loss=0.000213 perplexity=59.440069
+2026-04-10 20:49:23,291 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=171 stage_mse_loss=0.000214 perplexity=58.837057
+2026-04-10 20:49:23,355 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=172 stage_mse_loss=0.000213 perplexity=59.403886
+2026-04-10 20:49:23,418 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=173 stage_mse_loss=0.000213 perplexity=59.383438
+2026-04-10 20:49:23,482 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=174 stage_mse_loss=0.000213 perplexity=58.897155
+2026-04-10 20:49:23,545 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=175 stage_mse_loss=0.000213 perplexity=59.316056
+2026-04-10 20:49:23,609 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=176 stage_mse_loss=0.000212 perplexity=59.294733
+2026-04-10 20:49:23,672 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=177 stage_mse_loss=0.000212 perplexity=58.781533
+2026-04-10 20:49:23,736 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=178 stage_mse_loss=0.000213 perplexity=59.034592
+2026-04-10 20:49:23,799 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=179 stage_mse_loss=0.000212 perplexity=58.834139
+2026-04-10 20:49:23,864 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=180 stage_mse_loss=0.000212 perplexity=58.927747
+2026-04-10 20:49:23,928 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=181 stage_mse_loss=0.000212 perplexity=58.940758
+2026-04-10 20:49:23,992 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=182 stage_mse_loss=0.000212 perplexity=59.154773
+2026-04-10 20:49:24,055 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=183 stage_mse_loss=0.000212 perplexity=59.208645
+2026-04-10 20:49:24,119 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=184 stage_mse_loss=0.000212 perplexity=58.850806
+2026-04-10 20:49:24,183 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=185 stage_mse_loss=0.000211 perplexity=58.804914
+2026-04-10 20:49:24,246 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=186 stage_mse_loss=0.000212 perplexity=59.170994
+2026-04-10 20:49:24,310 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=187 stage_mse_loss=0.000211 perplexity=58.929911
+2026-04-10 20:49:24,374 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=188 stage_mse_loss=0.000212 perplexity=58.756817
+2026-04-10 20:49:24,437 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=189 stage_mse_loss=0.000211 perplexity=59.066522
+2026-04-10 20:49:24,501 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=190 stage_mse_loss=0.000212 perplexity=59.087171
+2026-04-10 20:49:24,565 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=191 stage_mse_loss=0.000210 perplexity=58.610412
+2026-04-10 20:49:24,629 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=192 stage_mse_loss=0.000211 perplexity=58.677972
+2026-04-10 20:49:24,693 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=193 stage_mse_loss=0.000211 perplexity=58.991257
+2026-04-10 20:49:24,757 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=194 stage_mse_loss=0.000209 perplexity=58.655201
+2026-04-10 20:49:24,820 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=195 stage_mse_loss=0.000210 perplexity=58.457180
+2026-04-10 20:49:24,884 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=196 stage_mse_loss=0.000210 perplexity=58.623158
+2026-04-10 20:49:24,948 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=197 stage_mse_loss=0.000211 perplexity=58.887186
+2026-04-10 20:49:25,011 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=198 stage_mse_loss=0.000209 perplexity=58.599374
+2026-04-10 20:49:25,074 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=199 stage_mse_loss=0.000210 perplexity=58.680938
+2026-04-10 20:49:25,146 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=200 stage_mse_loss=0.000208 perplexity=58.526992
+2026-04-10 20:49:25,225 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=201 stage_mse_loss=0.000210 perplexity=58.614437
+2026-04-10 20:49:25,289 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=202 stage_mse_loss=0.000210 perplexity=58.720629
+2026-04-10 20:49:25,353 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=203 stage_mse_loss=0.000208 perplexity=58.273025
+2026-04-10 20:49:25,416 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=204 stage_mse_loss=0.000211 perplexity=58.564205
+2026-04-10 20:49:25,479 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=205 stage_mse_loss=0.000209 perplexity=58.866579
+2026-04-10 20:49:25,543 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=206 stage_mse_loss=0.000209 perplexity=58.387452
+2026-04-10 20:49:25,607 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=207 stage_mse_loss=0.000209 perplexity=58.681554
+2026-04-10 20:49:25,671 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=208 stage_mse_loss=0.000209 perplexity=58.525290
+2026-04-10 20:49:25,734 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=209 stage_mse_loss=0.000208 perplexity=58.021184
+2026-04-10 20:49:25,798 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=210 stage_mse_loss=0.000209 perplexity=58.329126
+2026-04-10 20:49:25,861 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=211 stage_mse_loss=0.000209 perplexity=58.624164
+2026-04-10 20:49:25,925 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=212 stage_mse_loss=0.000209 perplexity=58.499621
+2026-04-10 20:49:25,991 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=213 stage_mse_loss=0.000209 perplexity=58.714497
+2026-04-10 20:49:26,054 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=214 stage_mse_loss=0.000209 perplexity=58.503415
+2026-04-10 20:49:26,117 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=215 stage_mse_loss=0.000209 perplexity=58.043903
+2026-04-10 20:49:26,181 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=216 stage_mse_loss=0.000208 perplexity=58.366547
+2026-04-10 20:49:26,245 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=217 stage_mse_loss=0.000208 perplexity=58.292618
+2026-04-10 20:49:26,309 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=218 stage_mse_loss=0.000208 perplexity=58.159294
+2026-04-10 20:49:26,372 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=219 stage_mse_loss=0.000210 perplexity=58.739476
+2026-04-10 20:49:26,436 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=220 stage_mse_loss=0.000208 perplexity=58.165479
+2026-04-10 20:49:26,499 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=221 stage_mse_loss=0.000208 perplexity=58.200741
+2026-04-10 20:49:26,563 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=222 stage_mse_loss=0.000209 perplexity=58.530313
+2026-04-10 20:49:26,628 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=223 stage_mse_loss=0.000209 perplexity=58.195940
+2026-04-10 20:49:26,692 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=224 stage_mse_loss=0.000208 perplexity=58.325899
+2026-04-10 20:49:26,756 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=225 stage_mse_loss=0.000209 perplexity=58.365378
+2026-04-10 20:49:26,820 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=226 stage_mse_loss=0.000208 perplexity=57.947941
+2026-04-10 20:49:26,884 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=227 stage_mse_loss=0.000209 perplexity=58.518536
+2026-04-10 20:49:26,948 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=228 stage_mse_loss=0.000208 perplexity=58.716093
+2026-04-10 20:49:27,012 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=229 stage_mse_loss=0.000208 perplexity=57.958055
+2026-04-10 20:49:27,075 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=230 stage_mse_loss=0.000209 perplexity=58.125082
+2026-04-10 20:49:27,139 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=231 stage_mse_loss=0.000209 perplexity=58.589623
+2026-04-10 20:49:27,203 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=232 stage_mse_loss=0.000208 perplexity=58.118430
+2026-04-10 20:49:27,268 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=233 stage_mse_loss=0.000207 perplexity=58.046311
+2026-04-10 20:49:27,332 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=234 stage_mse_loss=0.000208 perplexity=58.343062
+2026-04-10 20:49:27,396 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=235 stage_mse_loss=0.000207 perplexity=57.757293
+2026-04-10 20:49:27,459 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=236 stage_mse_loss=0.000208 perplexity=58.005195
+2026-04-10 20:49:27,523 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=237 stage_mse_loss=0.000207 perplexity=58.396055
+2026-04-10 20:49:27,587 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=238 stage_mse_loss=0.000208 perplexity=58.242856
+2026-04-10 20:49:27,651 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=239 stage_mse_loss=0.000207 perplexity=58.007961
+2026-04-10 20:49:27,715 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=240 stage_mse_loss=0.000208 perplexity=58.100863
+2026-04-10 20:49:27,779 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=241 stage_mse_loss=0.000207 perplexity=58.219505
+2026-04-10 20:49:27,844 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=242 stage_mse_loss=0.000206 perplexity=58.102248
+2026-04-10 20:49:27,908 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=243 stage_mse_loss=0.000208 perplexity=58.087816
+2026-04-10 20:49:27,972 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=244 stage_mse_loss=0.000207 perplexity=58.095295
+2026-04-10 20:49:28,035 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=245 stage_mse_loss=0.000207 perplexity=58.245550
+2026-04-10 20:49:28,099 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=246 stage_mse_loss=0.000208 perplexity=58.170499
+2026-04-10 20:49:28,163 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=247 stage_mse_loss=0.000208 perplexity=57.998778
+2026-04-10 20:49:28,227 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=248 stage_mse_loss=0.000207 perplexity=58.371223
+2026-04-10 20:49:28,291 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=249 stage_mse_loss=0.000207 perplexity=58.040028
+2026-04-10 20:49:28,355 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=250 stage_mse_loss=0.000207 perplexity=57.921642
+2026-04-10 20:49:28,419 | INFO | mode=boosting phase=train learner=1 epoch=1 batch=251 stage_mse_loss=0.000208 perplexity=58.246828

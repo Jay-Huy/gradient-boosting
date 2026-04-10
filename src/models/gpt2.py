@@ -221,6 +221,7 @@ class GPT2BoostingLanguageModel(BaseModel):
         self.learner_alphas: list[float] = [0.0 for _ in range(self.num_learners)]
         self.active_learner_idx = 0
         self._stage_mse_loss = torch.nn.MSELoss()
+        print(f"[model-init] weak_learner_params={sum(p.numel() for p in self.learners[0].parameters())}")
         self.set_active_learner(idx = 0)
 
     def _make_gpt_config(self, cfg: dict[str, Any]) -> GPTConfig:
@@ -417,42 +418,40 @@ class GPT2BoostingLanguageModel(BaseModel):
     def _aggregate_logits(self, input_ids: torch.Tensor, upto_idx: int) -> torch.Tensor:
         return self.get_ensemble_logits(input_ids, upto_idx=upto_idx)
 
-    def forward(self, batch: Any) -> dict[str, Any]:
+    def forward(self, batch: Any, mode: str = "train") -> dict[str, Any]:
         if not isinstance(batch, dict):
             raise TypeError("Expected batch to be a dict with keys input_ids and targets")
 
         input_ids = batch["input_ids"]
         targets = batch.get("targets")
 
-        previous_logits = self.get_ensemble_logits(input_ids, upto_idx=self.active_learner_idx - 1)
-        active_logits = self.get_active_learner_logits(input_ids)
-        pre_alpha_logits = previous_logits + (self.shrinkage * active_logits)
-        if targets is None:
-            stage_loss = (active_logits.sum() * 0.0)
-            current_logits = previous_logits + self.shrinkage * self.get_learner_alpha(self.active_learner_idx) * active_logits
-            metric_loss = current_logits.sum() * 0.0
-            pre_alpha_metric_loss = pre_alpha_logits.sum() * 0.0
-        else:
-            residual_target, valid_mask = self._negative_ce_gradient(previous_logits, targets)
-            stage_loss = self._stage_loss(active_logits, residual_target, valid_mask)
-            current_logits = self.get_ensemble_logits(input_ids, upto_idx=self.active_learner_idx)
-            metric_loss = self._mean_cross_entropy(current_logits, targets)
-            pre_alpha_metric_loss = self._mean_cross_entropy(pre_alpha_logits, targets)
+        previous_logits = self.get_ensemble_logits(input_ids, upto_idx=self.active_learner_idx - 1) # Để tính residual
+        active_logits = self.get_active_learner_logits(input_ids) # Để train với residual
+        residual_target, valid_mask = self._negative_ce_gradient(previous_logits, targets)
+        stage_loss = self._stage_loss(active_logits, residual_target, valid_mask)
 
-        predictions = torch.argmax(current_logits, dim=-1)
-        pre_alpha_predictions = torch.argmax(pre_alpha_logits, dim=-1)
-        return {
-            "loss": stage_loss,
-            "metric_loss": metric_loss,
-            "predictions": predictions,
-            "pre_alpha_metric_loss": pre_alpha_metric_loss,
-            "pre_alpha_predictions": pre_alpha_predictions,
-            "targets": targets,
-            "logits": current_logits,
-            "pre_alpha_logits": pre_alpha_logits,
-            "stage_logits": active_logits,
-            "learner_id": self.active_learner_idx + 1,
-        }
+        if mode == "train":
+            return {
+                "loss": stage_loss,
+                "learner_id": self.active_learner_idx + 1,
+            }
+
+        else:
+            current_logits = previous_logits + self.shrinkage * self.get_learner_alpha(self.active_learner_idx) * active_logits
+            predictions = torch.argmax(current_logits, dim=-1)
+
+            if targets is None:
+                metric_loss = current_logits.sum() * 0.0
+            else:
+                metric_loss = self._mean_cross_entropy(current_logits, targets)
+
+            return {
+                "loss": stage_loss,
+                "metric_loss": metric_loss,
+                "predictions": predictions,
+                "targets": targets,
+                "learner_id": self.active_learner_idx + 1,
+            }
 
     def infer(self, batch: Any) -> Any:
         if not isinstance(batch, dict):
