@@ -1,0 +1,17 @@
+runtime:
+  mode: infer
+
+data:
+  type: default
+  params:
+    output_format: json
+
+model:
+  type: default
+  params: {}
+
+score:
+  type: default
+  params:
+    metrics:
+      - loss

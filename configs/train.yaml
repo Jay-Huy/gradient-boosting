@@ -1,0 +1,25 @@
+data:
+  type: default
+  params: {}
+
+runtime:
+  mode: train
+
+model:
+  type: default
+  params: {}
+
+training:
+  epochs: 10
+  eval_step: 2
+  optimizer:
+    name: adamw
+    lr: 0.001
+    weight_decay: 0.01
+  log_file: outputs/logs/train.log
+
+score:
+  type: default
+  params:
+    metrics:
+      - loss

@@ -1,0 +1,55 @@
+runtime:
+  mode: train
+
+data:
+  type: shakespeare_char
+  params:
+    dataset_dir: data/shakespeare_char
+    input_file: input.txt
+    train_bin: train.bin
+    val_bin: val.bin
+    meta_file: meta.pkl
+    block_size: 256
+    batch_size: 32
+    num_workers: 0
+    pin_memory: false
+    val_split: 0.1
+    download_if_missing: false
+    reprepare: false
+
+model:
+  type: gpt2_char
+  params:
+    block_size: 256
+    vocab_size: 65
+    n_layer: 6
+    n_head: 6
+    n_embd: 384
+    dropout: 0.2
+    bias: true
+
+training:
+  epochs: 10
+  eval_step: 2
+  results_dir: results/runs
+  optimizer:
+    name: adamw
+    lr: 0.001
+    weight_decay: 0.1
+    betas: [0.9, 0.95]
+  log_file: outputs/logs/gpt2_shakespear.log
+  early_stopping:
+    enabled: true
+    metric: loss
+    mode: min
+    patience: 5
+
+score:
+  type: perplexity
+  params:
+    metrics:
+      - perplexity
+
+inference:
+  enabled: false
+  output_dir: outputs/predictions

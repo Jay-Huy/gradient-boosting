@@ -1,0 +1,39 @@
+data:
+  type: default
+  params:
+    batch_size: 8
+    num_workers: 2
+    pin_memory: true
+    output_format: json
+
+runtime:
+  mode: train
+
+model:
+  type: default
+  params: {}
+
+training:
+  epochs: 10
+  eval_step: 2
+  optimizer:
+    name: adamw
+    lr: 0.001
+    weight_decay: 0.01
+  early_stopping:
+    enabled: true
+    metric: loss
+    mode: min
+    patience: 5
+  checkpoint_dir: outputs/checkpoints
+  log_file: outputs/logs/train.log
+
+score:
+  type: default
+  params:
+    metrics:
+      - loss
+
+inference:
+  enabled: false
+  output_dir: outputs/predictions
