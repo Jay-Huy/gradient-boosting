@@ -11,6 +11,8 @@ from typing import Any
 import tqdm
 import torch
 
+from src.orchestrator.checkpointing import load_checkpoint, save_checkpoint
+from src.orchestrator.early_stopping import EarlyStopping
 from src.utils.factory import create_data_module, create_model, create_score
 from src.utils.logging import get_logger
 
@@ -77,6 +79,7 @@ class Trainer:
         
         if training_mode == "boosting":
             self._run_boosting(
+                run_id=run_id,
                 logger=logger,
                 results=results,
             )
@@ -109,6 +112,7 @@ class Trainer:
     def _run_boosting(
         self,
         *,
+        run_id: str,
         logger: Logger,
         results: dict[str, Any],
     ) -> None:
@@ -133,7 +137,20 @@ class Trainer:
         alpha_split = str(line_search_config["split"]).lower()
         alpha_bounds = tuple(line_search_config["alpha_bounds"])
 
+        checkpoint_config = dict(boosting_config.get("checkpoint", {}))
+        checkpoint_enabled = bool(checkpoint_config.get("enabled", False))
+        save_latest = bool(checkpoint_config.get("save_latest", True))
+        save_best = bool(checkpoint_config.get("save_best", True))
+        resume_from = checkpoint_config.get("resume_from")
+
+        early_stopping_config = dict(boosting_config.get("early_stopping", {}))
+        early_stopping_enabled = bool(early_stopping_config.get("enabled", False))
+        early_stopping_patience = int(early_stopping_config.get("patience", 5))
+        early_stopping_min_delta = float(early_stopping_config.get("min_delta", 0.0))
+        early_stopping_mode = str(early_stopping_config.get("mode", "min"))
+
         num_learners = self.model.num_learners
+        checkpoint_root = self._checkpoint_root_dir(run_id)
 
         results["metadata"]["boosting"] = {
             "num_learners": num_learners,
@@ -146,6 +163,19 @@ class Trainer:
                 "split": alpha_split,
                 "alpha_bounds": list(alpha_bounds),
             },
+            "checkpoint": {
+                "enabled": checkpoint_enabled,
+                "save_latest": save_latest,
+                "save_best": save_best,
+                "resume_from": str(resume_from) if resume_from else None,
+                "root_dir": checkpoint_root.as_posix(),
+            },
+            "early_stopping": {
+                "enabled": early_stopping_enabled,
+                "patience": early_stopping_patience,
+                "min_delta": early_stopping_min_delta,
+                "mode": early_stopping_mode,
+            },
             "learner_alphas": [],
             "learner_progress": [],
         }
@@ -154,15 +184,68 @@ class Trainer:
         if not callable(get_batch):
             raise RuntimeError("Data module must provide get_batch(split) for boosting")
 
-        for learner_idx in range(num_learners):
-            # Set active learner in the model for current stage
-            self.model.begin_learner_stage(learner_idx)
+        resume_checkpoint: dict[str, Any] | None = None
+        resume_state: dict[str, Any] = {
+            "learner_idx": 0,
+            "next_step": 1,
+            "learner_completed": True,
+            "optimizer_state_dict": None,
+        }
+        if resume_from:
+            resume_path = Path(resume_from)
+            if not resume_path.is_absolute():
+                resume_path = Path(resume_from)
+            if not resume_path.exists():
+                raise FileNotFoundError(f"Checkpoint path does not exist: {resume_path}")
+            resume_checkpoint = load_checkpoint(self.model, resume_path, map_location=self.device)
+            resume_metadata = dict(resume_checkpoint.get("metadata", {}))
+            resume_state.update(
+                {
+                    "learner_idx": int(resume_metadata.get("learner_idx", 0)),
+                    "next_step": int(resume_metadata.get("next_step", 1)),
+                    "learner_completed": bool(resume_metadata.get("learner_completed", True)),
+                    "optimizer_state_dict": resume_checkpoint.get("optimizer_state_dict"),
+                }
+            )
+
+        resume_learner_idx = int(resume_state["learner_idx"])
+        if resume_checkpoint is None:
+            start_learner_idx = 0
+        else:
+            start_learner_idx = resume_learner_idx + 1 if bool(resume_state["learner_completed"]) else resume_learner_idx
+            start_learner_idx = min(max(start_learner_idx, 0), num_learners)
+
+            if start_learner_idx >= num_learners:
+                logger.info("mode=boosting resume_checkpoint already completed all learners; nothing to train")
+                return
+
+        for learner_idx in range(start_learner_idx, num_learners):
+            resume_same_learner = bool(resume_checkpoint) and learner_idx == resume_learner_idx and not bool(resume_state["learner_completed"])
+            if resume_same_learner:
+                self.model.set_active_learner(learner_idx)
+            else:
+                # Set active learner in the model for current stage
+                self.model.begin_learner_stage(learner_idx)
 
             probe_batches = [get_batch("val") for _ in range(eval_iters)]
             before_stats = self._evaluate_batches(probe_batches)
 
             # Init specific learner optimizer
             optimizer = self._build_optimizer(self.config["training"]['optimizer'])
+            if resume_same_learner and resume_state["optimizer_state_dict"] is not None:
+                optimizer.load_state_dict(resume_state["optimizer_state_dict"])
+
+            learner_early_stopping = None
+            if early_stopping_enabled:
+                learner_early_stopping = EarlyStopping(
+                    mode=early_stopping_mode,
+                    patience=early_stopping_patience,
+                    min_delta=early_stopping_min_delta,
+                )
+                if resume_same_learner:
+                    checkpoint_early_stopping_state = resume_checkpoint.get("metadata", {}).get("early_stopping_state") if resume_checkpoint is not None else None
+                    if isinstance(checkpoint_early_stopping_state, dict):
+                        learner_early_stopping.load_state_dict(checkpoint_early_stopping_state)
             logger.info(
                 "mode=boosting stage_start learner=%d/%d max_iters=%d eval_interval=%d",
                 learner_idx + 1,
@@ -171,20 +254,32 @@ class Trainer:
                 eval_interval,
             )
 
-            self._train_steps_loop(
+            learner_run_state = self._train_steps_loop(
                 max_iters=max_iters,
                 eval_interval=eval_interval,
                 eval_iters=eval_iters,
                 log_interval=log_interval,
                 alpha_bounds=alpha_bounds,
+                checkpoint_root=checkpoint_root,
+                checkpoint_enabled=checkpoint_enabled,
+                save_latest=save_latest,
+                save_best=save_best,
+                run_id=run_id,
+                learner_idx=learner_idx,
+                start_step=int(resume_state["next_step"]) if resume_same_learner else 1,
+                early_stopping=learner_early_stopping,
                 optimizer=optimizer,
                 logger=logger,
                 results=results,
                 learner_id=learner_idx + 1,
+                resume_same_learner=resume_same_learner,
             )
 
             after_stats = self._evaluate_batches(probe_batches)
             final_alpha = float(self.model.get_learner_alpha(learner_idx))
+            latest_checkpoint_path = learner_run_state.get("latest_checkpoint_path")
+            best_checkpoint_path = learner_run_state.get("best_checkpoint_path")
+            final_checkpoint_path = learner_run_state.get("final_checkpoint_path")
             results["metadata"]["boosting"]["learner_alphas"].append(final_alpha)
             results["metadata"]["boosting"]["learner_progress"].append(
                 {
@@ -199,6 +294,15 @@ class Trainer:
                     "after_loss": float(after_stats["loss"]),
                     "loss_improvement": float(before_stats["loss"] - after_stats["loss"]),
                     "score_name": after_stats["score_name"],
+                    "checkpoint_enabled": checkpoint_enabled,
+                    "latest_checkpoint_path": latest_checkpoint_path,
+                    "best_checkpoint_path": best_checkpoint_path,
+                    "final_checkpoint_path": final_checkpoint_path,
+                    "early_stopped": bool(learner_run_state.get("stopped_early", False)),
+                    "stop_reason": learner_run_state.get("stop_reason"),
+                    "best_score": learner_run_state.get("best_score"),
+                    "best_step": learner_run_state.get("best_step"),
+                    "no_improve_count": learner_run_state.get("no_improve_count"),
                 }
             )
             logger.info(
@@ -220,11 +324,20 @@ class Trainer:
         eval_iters: int,
         log_interval: int,
         alpha_bounds: tuple[float, ...],
+        checkpoint_root: Path,
+        checkpoint_enabled: bool,
+        save_latest: bool,
+        save_best: bool,
+        run_id: str,
+        learner_idx: int,
+        start_step: int,
+        early_stopping: EarlyStopping | None,
         optimizer: torch.optim.Optimizer,
         logger: Logger,
         results: dict[str, Any],
         learner_id: int,
-    ) -> None:
+        resume_same_learner: bool,
+    ) -> dict[str, Any]:
         self.score.reset()
 
         get_batch = getattr(self.data_module, "get_batch", None)
@@ -236,8 +349,21 @@ class Trainer:
         window_samples = 0
         window_batches = 0
         window_start_time = perf_counter()
+        best_score: float | None = None
+        best_step: int | None = None
+        latest_checkpoint_path: str | None = None
+        best_checkpoint_path: str | None = None
+        final_checkpoint_path: str | None = None
+        stopped_early = False
+        stop_reason: str | None = None
+        last_val_stats: dict[str, float] | None = None
+        last_step = start_step - 1
 
-        for step in range(1, max_iters + 1):
+        if start_step > 1 and window_start_step < start_step:
+            window_start_step = start_step
+
+        for step in range(start_step, max_iters + 1):
+            last_step = step
             batch_stats = self._process_batch(
                 get_batch("train"),
                 is_train=True,
@@ -322,6 +448,68 @@ class Trainer:
             val_start = perf_counter()
             val_stats = self._evaluate_batches(val_batches)
             val_duration = perf_counter() - val_start
+            last_val_stats = val_stats
+
+            if checkpoint_enabled and save_latest:
+                base_dir = checkpoint_root / f"learner_{learner_id:03d}"
+                latest_checkpoint_path = (base_dir / "latest.pt").as_posix()
+                save_checkpoint(
+                    latest_checkpoint_path,
+                    model=self.model,
+                    optimizer=optimizer,
+                    metadata=self._build_checkpoint_metadata(
+                        run_id=run_id,
+                        learner_idx=learner_idx,
+                        learner_id=learner_id,
+                        step=step,
+                        next_step=step + 1,
+                        learner_completed=False,
+                        best_score=best_score,
+                        best_step=best_step,
+                        val_stats=val_stats,
+                        early_stopping=early_stopping,
+                    ),
+                )
+
+            current_score = float(val_stats["score"])
+            improved = False
+            stopped_now = False
+            if early_stopping is not None:
+                stopped_now = early_stopping.update(current_score, step=step)
+                improved = early_stopping.best_step == step
+                if early_stopping.best_value is not None:
+                    best_score = float(early_stopping.best_value)
+                    best_step = early_stopping.best_step
+            else:
+                if best_score is None or current_score < best_score:
+                    improved = True
+                    best_score = current_score
+                    best_step = step
+
+            if checkpoint_enabled and save_best and improved:
+                base_dir = checkpoint_root / f"learner_{learner_id:03d}"
+                best_checkpoint_path = (base_dir / "best.pt").as_posix()
+                save_checkpoint(
+                    best_checkpoint_path,
+                    model=self.model,
+                    optimizer=optimizer,
+                    metadata=self._build_checkpoint_metadata(
+                        run_id=run_id,
+                        learner_idx=learner_idx,
+                        learner_id=learner_id,
+                        step=step,
+                        next_step=step + 1,
+                        learner_completed=False,
+                        best_score=best_score,
+                        best_step=best_step,
+                        val_stats=val_stats,
+                        early_stopping=early_stopping,
+                    ),
+                )
+
+            if early_stopping is not None and stopped_now:
+                stopped_early = True
+                stop_reason = "patience_exhausted"
 
             val_record = {
                 "epoch": None,
@@ -355,6 +543,41 @@ class Trainer:
             )
             self.score.reset()
 
+            if stopped_early:
+                break
+
+        if checkpoint_enabled:
+            base_dir = checkpoint_root / f"learner_{learner_id:03d}"
+            final_checkpoint_path = (base_dir / "final.pt").as_posix()
+            save_checkpoint(
+                final_checkpoint_path,
+                model=self.model,
+                optimizer=optimizer,
+                metadata=self._build_checkpoint_metadata(
+                    run_id=run_id,
+                    learner_idx=learner_idx,
+                    learner_id=learner_id,
+                    step=last_step,
+                    next_step=last_step + 1,
+                    learner_completed=not stopped_early,
+                    best_score=best_score,
+                    best_step=best_step,
+                    val_stats=last_val_stats,
+                    early_stopping=early_stopping,
+                ),
+            )
+
+        return {
+            "stopped_early": stopped_early,
+            "stop_reason": stop_reason,
+            "best_score": best_score,
+            "best_step": best_step,
+            "no_improve_count": early_stopping.num_bad_epochs if early_stopping is not None else None,
+            "latest_checkpoint_path": latest_checkpoint_path,
+            "best_checkpoint_path": best_checkpoint_path,
+            "final_checkpoint_path": final_checkpoint_path,
+        }
+
     def _evaluate_batches(self, batches: list[Any]) -> dict[str, float]:
         self.score.reset()
         total_loss = 0.0
@@ -378,6 +601,41 @@ class Trainer:
             "score": float(avg_score),
             "score_name": score_name,
             "num_samples": float(total_samples),
+        }
+
+    def _checkpoint_root_dir(self, run_id: str) -> Path:
+        training_config = self.config["training"]
+        results_dir = Path(training_config.get("results_dir", "results/runs"))
+        return results_dir / run_id / "checkpoints"
+
+    def _build_checkpoint_metadata(
+        self,
+        *,
+        run_id: str,
+        learner_idx: int,
+        learner_id: int,
+        step: int,
+        next_step: int,
+        learner_completed: bool,
+        best_score: float | None,
+        best_step: int | None,
+        val_stats: dict[str, float] | None,
+        early_stopping: EarlyStopping | None,
+    ) -> dict[str, Any]:
+        return {
+            "run_id": run_id,
+            "learner_idx": learner_idx,
+            "learner_id": learner_id,
+            "step": step,
+            "next_step": next_step,
+            "learner_completed": learner_completed,
+            "best_score": best_score,
+            "best_step": best_step,
+            "val_stats": val_stats,
+            "learner_alphas": [float(alpha) for alpha in getattr(self.model, "learner_alphas", [])],
+            "active_learner_idx": int(getattr(self.model, "active_learner_idx", learner_idx)),
+            "early_stopping_state": early_stopping.state_dict() if early_stopping is not None else None,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     def _build_optimizer(self, optimizer_config: dict[str, Any]) -> torch.optim.Optimizer:

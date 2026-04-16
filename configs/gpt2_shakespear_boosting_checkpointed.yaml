@@ -1,0 +1,75 @@
+runtime:
+  mode: train
+
+data:
+  type: shakespeare_char
+  params:
+    dataset_dir: data/shakespeare_char
+    input_file: input.txt
+    train_bin: train.bin
+    val_bin: val.bin
+    meta_file: meta.pkl
+    block_size: 256
+    batch_size: 32
+    num_workers: 0
+    pin_memory: false
+    val_split: 0.1
+    download_if_missing: false
+    reprepare: false
+
+model:
+  type: gpt2_boosting_char
+  params:
+    num_learners: 3
+    shrinkage: 1.0
+    weak_learner:
+      block_size: 256
+      vocab_size: 65
+      n_layer: 2
+      n_head: 6
+      n_embd: 384
+      dropout: 0.2
+      bias: true
+
+score:
+  type: perplexity
+  params:
+    metrics:
+      - perplexity
+
+inference:
+  enabled: false
+  output_dir: outputs/predictions
+
+training:
+  mode: boosting
+  results_dir: results/runs
+  boosting:
+    max_iters: 10000
+    eval_interval: 25  # Run validation every 25 steps
+    eval_iters: 25  # Number of validation batches per eval
+    log_interval: 25  # Log train progress every 25 steps
+    checkpoint:
+      enabled: true  # Save checkpoints during boosting
+      save_latest: true  # Keep latest.pt for resume/recovery
+      save_best: true  # Keep best.pt when val perplexity improves
+      resume_from: null  # Set a .pt path here to continue training
+    early_stopping:
+      enabled: true  # Stop a learner when val perplexity stops improving
+      mode: min  # Lower perplexity is better
+      patience: 5  # Stop after 5 non-improving validation checks
+      min_delta: 0.0  # Ignore tiny noise when deciding improvement
+    line_search:
+      split: val  # Metadata for alpha-search probe split
+      alpha_bounds: [0.0, 1.0]
+  optimizer:
+    name: adamw
+    lr: 0.001
+    weight_decay: 0.1
+    betas: [0.9, 0.95]
+  log_file: outputs/logs/gpt2_shakespear_boosting_checkpointed.log
+  early_stopping:
+    enabled: false
+    metric: loss
+    mode: min
+    patience: 5
