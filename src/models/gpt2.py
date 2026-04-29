@@ -220,7 +220,6 @@ class GPT2BoostingLanguageModel(BaseModel):
         self.learners = nn.ModuleList([GPT(self._make_gpt_config(weak_cfg)) for _ in range(self.num_learners)])
         self.learner_alphas: list[float] = [0.0 for _ in range(self.num_learners)]
         self.active_learner_idx = 0
-        self._stage_mse_loss = torch.nn.MSELoss()
         print(f"[model-init] weak_learner_params={sum(p.numel() for p in self.learners[0].parameters())}")
         self.set_active_learner(idx = 0)
 
@@ -325,10 +324,16 @@ class GPT2BoostingLanguageModel(BaseModel):
         residual_target: torch.Tensor,
         valid_mask: torch.Tensor,
     ) -> torch.Tensor:
-        mask = valid_mask.unsqueeze(-1).to(weak_logits.dtype)
-        elementwise = self._stage_mse_loss(weak_logits, residual_target) * mask
-        denom = (mask.sum() * weak_logits.size(-1)).clamp_min(1.0)
-        return elementwise.sum() / denom
+        # Compute per-element MSE FIRST: (B, L, V)
+        mse_per_element = (weak_logits - residual_target) ** 2
+        
+        # Apply valid mask: zero out padding positions
+        mask = valid_mask.unsqueeze(-1).to(weak_logits.dtype)  # (B, L, 1)
+        masked_mse = mse_per_element * mask  # (B, L, V)
+        
+        # Average over valid elements only
+        num_valid_elements = (mask.sum() * weak_logits.size(-1)).clamp_min(1.0)
+        return masked_mse.sum() / num_valid_elements
 
     def _mean_cross_entropy(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         nll_sum = F.cross_entropy(
