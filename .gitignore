@@ -1,5 +1,5 @@
-results/
-outputs/
+results/*
+outputs/*
 .venv/
 __pycache__/
 *.pyc
